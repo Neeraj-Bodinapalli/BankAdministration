@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bank System - Login</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <h1 class="title">Welcome to SecureBank</h1>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <div class="tabs">
+                <button class="tab-btn active" data-tab="admin">Admin Login</button>
+                <button class="tab-btn" data-tab="customer">Customer Login</button>
+            </div>
+
+            <!-- Admin Login Form -->
+            <form id="admin-form" class="login-form active" action="{{ url_for('login') }}" method="POST">
+                <input type="hidden" name="user_type" value="admin">
+                <div class="form-group">
+                    <input type="text" name="username" placeholder="Admin Username" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" name="password" placeholder="Password" required>
+                </div>
+                <button type="submit" class="login-btn">Login as Admin</button>
+            </form>
+
+            <!-- Customer Login Form -->
+            <form id="customer-form" class="login-form" action="{{ url_for('login') }}" method="POST">
+                <input type="hidden" name="user_type" value="customer">
+                <div class="form-group">
+                    <input type="text" name="account_number" placeholder="Account Number" pattern="[0-9]{10}" title="Please enter your 10-digit account number" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" name="pin" placeholder="PIN" pattern="[0-9]{4}" title="Please enter your 4-digit PIN" required>
+                </div>
+                <button type="submit" class="login-btn">Login as Customer</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const tabBtns = document.querySelectorAll('.tab-btn');
+            const forms = document.querySelectorAll('.login-form');
+
+            tabBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    // Remove active class from all buttons and forms
+                    tabBtns.forEach(b => b.classList.remove('active'));
+                    forms.forEach(f => f.classList.remove('active'));
+
+                    // Add active class to clicked button and corresponding form
+                    btn.classList.add('active');
+                    const formId = btn.getAttribute('data-tab') + '-form';
+                    document.getElementById(formId).classList.add('active');
+                });
+            });
+        });
+    </script>
+</body>
+</html> 

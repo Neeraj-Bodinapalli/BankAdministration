@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard - SecureBank</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>SecureBank</h2>
+                <p>Admin Panel</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="overview">
+                    <i class="fas fa-home"></i> Overview
+                </a>
+                <a href="#" class="nav-item" data-tab="customers">
+                    <i class="fas fa-users"></i> Customers
+                </a>
+                <a href="#" class="nav-item" data-tab="transactions">
+                    <i class="fas fa-exchange-alt"></i> Transactions
+                </a>
+                <a href="#" class="nav-item" data-tab="loans">
+                    <i class="fas fa-money-bill-wave"></i> Pending Loans
+                </a>
+                <a href="#" class="nav-item" data-tab="manage">
+                    <i class="fas fa-cog"></i> Manage Accounts
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-item logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="welcome-text">
+                    Welcome, Admin
+                </div>
+                <div class="date-time" id="datetime">
+                    Loading...
+                </div>
+            </div>
+
+            <!-- Content Sections -->
+            <div class="dashboard-content">
+                <!-- Flash Messages -->
+                {% with messages = get_flashed_messages(with_categories=true) %}
+                    {% if messages %}
+                        {% for category, message in messages %}
+                            <div class="flash-message {{ category }}">
+                                {{ message }}
+                            </div>
+                        {% endfor %}
+                    {% endif %}
+                {% endwith %}
+
+                <!-- Overview Section -->
+                <div class="content-section {% if active_tab == 'overview' %}active{% endif %}" id="overview">
+                    <h2>System Overview</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-users"></i>
+                            </div>
+                            <div class="stat-details">
+                                <h3>Total Customers</h3>
+                                <p class="stat-number">{{ total_customers }}</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-wallet"></i>
+                            </div>
+                            <div class="stat-details">
+                                <h3>Total Balance</h3>
+                                <p class="stat-number">₹{{ "{:,.2f}".format(total_balance) }}</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                            <div class="stat-details">
+                                <h3>Today's Transactions</h3>
+                                <p class="stat-number">{{ todays_transactions }}</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <div class="stat-details">
+                                <h3>New Accounts</h3>
+                                <p class="stat-number">{{ new_accounts }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Activities -->
+                    <div class="recent-activities">
+                        <h3>Recent Activities</h3>
+                        <div class="activity-list">
+                            {% for activity in recent_activities %}
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    {% if activity.transaction_type == 'deposit' %}
+                                        <i class="fas fa-arrow-up text-success"></i>
+                                    {% elif activity.transaction_type == 'withdrawal' %}
+                                        <i class="fas fa-arrow-down text-danger"></i>
+                                    {% else %}
+                                        <i class="fas fa-exchange-alt text-info"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="activity-details">
+                                    <p class="activity-text">{{ activity.name }} - {{ activity.transaction_type|title }}</p>
+                                    <p class="activity-time">{{ activity.transaction_date }}</p>
+                                </div>
+                                <div class="activity-amount">
+                                    ₹{{ "{:,.2f}".format(activity.amount) }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Customers Section -->
+                <div class="content-section {% if active_tab == 'customers' %}active{% endif %}" id="customers">
+                    <h2>Customer Management</h2>
+                    <div class="search-bar">
+                        <input type="text" id="customerSearch" placeholder="Search by name or account number...">
+                        <button class="search-btn"><i class="fas fa-search"></i></button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Account Number</th>
+                                    <th>Name</th>
+                                    <th>Balance</th>
+                                    <th>Last Transaction</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for customer in customers %}
+                                <tr>
+                                    <td>{{ customer.account_number }}</td>
+                                    <td>{{ customer.name }}</td>
+                                    <td>₹{{ "{:,.2f}".format(customer.balance) }}</td>
+                                    <td>{{ customer.last_transaction }}</td>
+                                    <td>
+                                        <button class="action-btn delete-btn" onclick="deleteCustomer('{{ customer.account_number }}')">
+                                            <i class="fas fa-trash"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Transactions Section -->
+                <div class="content-section {% if active_tab == 'transactions' %}active{% endif %}" id="transactions">
+                    <h2>Transaction History</h2>
+                    <div class="filter-bar">
+                        <select id="transactionType">
+                            <option value="all">All Transactions</option>
+                            <option value="deposit">Deposits</option>
+                            <option value="withdrawal">Withdrawals</option>
+                            <option value="transfer">Transfers</option>
+                        </select>
+                        <input type="date" id="dateFilter">
+                        <button class="filter-btn">Apply Filter</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Account</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in transactions %}
+                                <tr>
+                                    <td>{{ transaction.transaction_date }}</td>
+                                    <td>{{ transaction.account_number }}</td>
+                                    <td>
+                                        <span class="transaction-type {{ transaction.transaction_type }}">
+                                            {{ transaction.transaction_type|title }}
+                                        </span>
+                                    </td>
+                                    <td>₹{{ "{:,.2f}".format(transaction.amount) }}</td>
+                                    <td>{{ transaction.notes or 'N/A' }}</td>
+                                    <td>
+                                        <span class="status-badge success">Success</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Manage Accounts Section -->
+                <div class="content-section {% if active_tab == 'manage' %}active{% endif %}" id="manage">
+                    <h2>Account Management</h2>
+                    <div class="management-grid">
+                        <div class="management-card">
+                            <h3>Create New Account</h3>
+                            <form id="newAccountForm" method="POST" action="{{ url_for('admin.create_account') }}">
+                                <div class="form-group">
+                                    <label>Full Name</label>
+                                    <input type="text" name="name" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Initial Deposit</label>
+                                    <input type="number" name="initial_deposit" min="0" step="0.01" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>PIN</label>
+                                    <input type="password" name="pin" pattern="[0-9]{4}" title="Please enter a 4-digit PIN" required>
+                                </div>
+                                <button type="submit" class="submit-btn">Create Account</button>
+                            </form>
+                        </div>
+                        
+                        <div class="management-card">
+                            <h3>Process Transaction</h3>
+                            <form id="transactionForm" method="POST" action="{{ url_for('admin.process_transaction') }}">
+                                <div class="form-group">
+                                    <label>Account Number</label>
+                                    <input type="text" name="account_number" pattern="[0-9]{10}" title="Please enter a valid 10-digit account number" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Transaction Type</label>
+                                    <select name="transaction_type" required>
+                                        <option value="deposit">Deposit</option>
+                                        <option value="withdrawal">Withdrawal</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount</label>
+                                    <input type="number" name="amount" min="1" step="0.01" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Description (Optional)</label>
+                                    <textarea name="description" rows="2"></textarea>
+                                </div>
+                                <button type="submit" class="submit-btn">Process Transaction</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pending Loans Section -->
+                <div class="content-section {% if active_tab == 'loans' %}active{% endif %}" id="loans">
+                    <h2>Pending Loan Applications</h2>
+                    
+                    {% if pending_loans %}
+                    <div class="loans-grid">
+                        {% for loan in pending_loans %}
+                        <div class="loan-card" data-loan-id="{{ loan.id }}">
+                            <div class="loan-header">
+                                <h3>Loan Application #{{ loan.id }}</h3>
+                                <span class="loan-status pending">Pending</span>
+                            </div>
+                            <div class="loan-details">
+                                <div class="detail-row">
+                                    <span class="label">Account Number:</span>
+                                    <span class="value">{{ loan.account_number }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Amount:</span>
+                                    <span class="value">₹{{ "%.2f"|format(loan.amount) }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Term:</span>
+                                    <span class="value">{{ loan.term_months }} months</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Monthly Payment:</span>
+                                    <span class="value">₹{{ "%.2f"|format(loan.monthly_payment) }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Purpose:</span>
+                                    <span class="value">{{ loan.purpose }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Monthly Income:</span>
+                                    <span class="value">₹{{ "%.2f"|format(loan.monthly_income) }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Employment:</span>
+                                    <span class="value">{{ loan.employment_type }}</span>
+                                </div>
+                                <div class="detail-row">
+                                    <span class="label">Applied On:</span>
+                                    <span class="value">{{ loan.application_date.strftime('%Y-%m-%d') }}</span>
+                                </div>
+                            </div>
+                            <div class="loan-actions">
+                                <button onclick="approveLoan({{ loan.id }})" class="btn btn-success">
+                                    <i class="fas fa-check"></i> Approve
+                                </button>
+                                <button onclick="rejectLoan({{ loan.id }})" class="btn btn-danger">
+                                    <i class="fas fa-times"></i> Reject
+                                </button>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                    {% else %}
+                    <div class="no-loans">
+                        <i class="fas fa-check-circle"></i>
+                        <p>No pending loan applications</p>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Templates -->
+    <div class="modal" id="transactionModal">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2 id="modalTitle">New Transaction</h2>
+            <form id="transactionForm" method="POST">
+                <div class="form-group">
+                    <input type="text" name="account_number" placeholder="Account Number" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" name="amount" placeholder="Amount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <textarea name="notes" placeholder="Transaction Notes (Optional)"></textarea>
+                </div>
+                <button type="submit" class="submit-btn">Process Transaction</button>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Update date and time
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('datetime').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // Update time every second
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // Tab switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const navItems = document.querySelectorAll('.nav-item:not(.logout)');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            navItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Remove active class from all nav items and content sections
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    contentSections.forEach(section => section.classList.remove('active'));
+                    
+                    // Add active class to clicked nav item and corresponding content section
+                    this.classList.add('active');
+                    const tabId = this.getAttribute('data-tab');
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+
+            // Customer search functionality
+            const customerSearch = document.getElementById('customerSearch');
+            if (customerSearch) {
+                customerSearch.addEventListener('input', function() {
+                    const searchTerm = this.value.toLowerCase();
+                    const rows = document.querySelectorAll('#customers .data-table tbody tr');
+                    
+                    rows.forEach(row => {
+                        const name = row.children[1].textContent.toLowerCase();
+                        const accountNumber = row.children[0].textContent.toLowerCase();
+                        const matches = name.includes(searchTerm) || accountNumber.includes(searchTerm);
+                        row.style.display = matches ? '' : 'none';
+                    });
+                });
+            }
+
+            // Transaction filter functionality
+            const transactionType = document.getElementById('transactionType');
+            const dateFilter = document.getElementById('dateFilter');
+            const filterBtn = document.querySelector('.filter-btn');
+
+            if (filterBtn) {
+                filterBtn.addEventListener('click', function() {
+                    const type = transactionType.value;
+                    const date = dateFilter.value;
+                    const rows = document.querySelectorAll('#transactions .data-table tbody tr');
+                    
+                    rows.forEach(row => {
+                        let show = true;
+                        
+                        if (type !== 'all') {
+                            const transactionType = row.children[2].textContent.trim().toLowerCase();
+                            show = show && transactionType === type;
+                        }
+                        
+                        if (date) {
+                            const transactionDate = row.children[0].textContent.split(' ')[0];
+                            show = show && transactionDate === date;
+                        }
+                        
+                        row.style.display = show ? '' : 'none';
+                    });
+                });
+            }
+        });
+
+        // Customer management functions
+        function viewCustomer(accountNumber) {
+            window.location.href = "{{ url_for('admin.view_customer', account_number='') }}" + accountNumber;
+        }
+
+        function editCustomer(accountNumber) {
+            window.location.href = "{{ url_for('admin.edit_customer', account_number='') }}" + accountNumber;
+        }
+
+        function deleteCustomer(accountNumber) {
+            if (confirm('Are you sure you want to delete this customer? This action cannot be undone.')) {
+                fetch("{{ url_for('admin.delete_customer', account_number='') }}" + accountNumber, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        alert('Customer deleted successfully!');
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    alert('Error deleting customer: ' + error);
+                });
+            }
+        }
+
+        function approveLoan(loanId) {
+            if (!confirm('Are you sure you want to approve this loan application?')) {
+                return;
+            }
+
+            fetch(`/admin/loan/approve/${loanId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const loanCard = document.querySelector(`.loan-card[data-loan-id="${loanId}"]`);
+                    if (loanCard) {
+                        loanCard.remove();
+                        
+                        // Check if there are any remaining loans
+                        const loansGrid = document.querySelector('.loans-grid');
+                        if (loansGrid && loansGrid.children.length === 0) {
+                            const loansSection = document.querySelector('#loans');
+                            loansSection.innerHTML = `
+                                <h2>Pending Loan Applications</h2>
+                                <div class="no-loans">
+                                    <i class="fas fa-check-circle"></i>
+                                    <p>No pending loan applications</p>
+                                </div>
+                            `;
+                        }
+                    }
+                    showFlashMessage(data.message, 'success');
+                } else {
+                    showFlashMessage(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showFlashMessage('Error processing loan approval. Please try again.', 'error');
+            });
+        }
+
+        function rejectLoan(loanId) {
+            if (!confirm('Are you sure you want to reject this loan application?')) {
+                return;
+            }
+
+            fetch(`/admin/loan/reject/${loanId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    const loanCard = document.querySelector(`.loan-card[data-loan-id="${loanId}"]`);
+                    if (loanCard) {
+                        loanCard.remove();
+                        
+                        // Check if there are any remaining loans
+                        const loansGrid = document.querySelector('.loans-grid');
+                        if (loansGrid && loansGrid.children.length === 0) {
+                            const loansSection = document.querySelector('#loans');
+                            loansSection.innerHTML = `
+                                <h2>Pending Loan Applications</h2>
+                                <div class="no-loans">
+                                    <i class="fas fa-check-circle"></i>
+                                    <p>No pending loan applications</p>
+                                </div>
+                            `;
+                        }
+                    }
+                    showFlashMessage(data.message, 'success');
+                } else {
+                    showFlashMessage(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showFlashMessage('Error processing loan rejection. Please try again.', 'error');
+            });
+        }
+    </script>
+</body>
+</html> 

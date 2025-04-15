@@ -1,0 +1,643 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customer Dashboard - SecureBank</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+</head>
+<body>
+    <div class="dashboard-container">
+        <!-- Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <h2>SecureBank</h2>
+                <p>Welcome, {{ customer.name }}</p>
+            </div>
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" data-tab="overview">
+                    <i class="fas fa-home"></i> Overview
+                </a>
+                <a href="#" class="nav-item" data-tab="transfer">
+                    <i class="fas fa-exchange-alt"></i> Transfer Money
+                </a>
+                <a href="#" class="nav-item" data-tab="loans">
+                    <i class="fas fa-hand-holding-usd"></i> Loans
+                </a>
+                <a href="#" class="nav-item" data-tab="transactions">
+                    <i class="fas fa-history"></i> Transaction History
+                </a>
+                <a href="#" class="nav-item" data-tab="profile">
+                    <i class="fas fa-user"></i> Profile Settings
+                </a>
+                <a href="{{ url_for('logout') }}" class="nav-item logout">
+                    <i class="fas fa-sign-out-alt"></i> Logout
+                </a>
+            </nav>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Bar -->
+            <div class="top-bar">
+                <div class="welcome-text">
+                    Account: {{ customer.account_number }}
+                </div>
+                <div class="date-time" id="datetime">
+                    Loading...
+                </div>
+            </div>
+
+            <!-- Content Sections -->
+            <div class="content-sections">
+                <!-- Overview Section -->
+                <div class="content-section active" id="overview-section">
+                    <h2>Account Overview</h2>
+                    <!-- Flash Messages -->
+                    {% with messages = get_flashed_messages(with_categories=true) %}
+                        {% if messages %}
+                            {% for category, message in messages %}
+                                <div class="flash-message {{ category }}">
+                                    {{ message }}
+                                </div>
+                            {% endfor %}
+                        {% endif %}
+                    {% endwith %}
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-wallet"></i>
+                            </div>
+                            <div class="stat-info">
+                                <p class="stat-label">Current Balance</p>
+                                <p class="stat-number">₹{{ "{:,.2f}".format(customer.balance) }}</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-arrow-down"></i>
+                            </div>
+                            <div class="stat-info">
+                                <p class="stat-label">Total Deposits</p>
+                                <p class="stat-number">₹{{ "{:,.2f}".format(total_deposits) }}</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-arrow-up"></i>
+                            </div>
+                            <div class="stat-info">
+                                <p class="stat-label">Total Withdrawals</p>
+                                <p class="stat-number">₹{{ "{:,.2f}".format(total_withdrawals) }}</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon">
+                                <i class="fas fa-exchange-alt"></i>
+                            </div>
+                            <div class="stat-info">
+                                <p class="stat-label">Total Transfers</p>
+                                <p class="stat-number">₹{{ "{:,.2f}".format(total_transfers) }}</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recent Transactions -->
+                    <div class="recent-activities">
+                        <h3>Recent Transactions</h3>
+                        <div class="activity-list">
+                            {% for transaction in transactions %}
+                            <div class="activity-item">
+                                <div class="activity-icon">
+                                    {% if transaction.transaction_type == 'deposit' %}
+                                        <i class="fas fa-arrow-up text-success"></i>
+                                    {% elif transaction.transaction_type == 'withdrawal' %}
+                                        <i class="fas fa-arrow-down text-danger"></i>
+                                    {% else %}
+                                        <i class="fas fa-exchange-alt text-info"></i>
+                                    {% endif %}
+                                </div>
+                                <div class="activity-details">
+                                    <p class="activity-text">{{ transaction.transaction_type|title }}</p>
+                                    <p class="activity-time">{{ transaction.transaction_date }}</p>
+                                </div>
+                                <div class="activity-amount">
+                                    ₹{{ "{:,.2f}".format(transaction.amount) }}
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Transfer Section -->
+                <div class="content-section" id="transfer-section">
+                    <h2>Transfer Money</h2>
+                    <div class="management-grid">
+                        <div class="management-card">
+                            <h3>New Transfer</h3>
+                            <form id="transferForm" method="POST" action="{{ url_for('transfer_money') }}" onsubmit="return validateTransfer()">
+                                <div class="form-group">
+                                    <label>Recipient Account Number</label>
+                                    <input type="text" name="recipient_account" pattern="[0-9]{10}" title="Please enter a valid 10-digit account number" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Amount (₹)</label>
+                                    <input type="number" name="amount" min="1" step="0.01" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Description (Optional)</label>
+                                    <textarea name="description" rows="2" maxlength="100"></textarea>
+                                </div>
+                                <div class="form-group">
+                                    <label>Available Balance: ₹{{ "{:,.2f}".format(customer.balance) }}</label>
+                                </div>
+                                <button type="submit" class="submit-btn">Send Money</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Loans Section -->
+                <div class="content-section" id="loans-section">
+                    <div class="section-header">
+                        <h2>Loan Management</h2>
+                    </div>
+                    
+                    <!-- Loan Application Card -->
+                    <div class="loan-application-card">
+                        <div class="loan-header">
+                            <h3><i class="fas fa-file-invoice-dollar"></i> Apply for a New Loan</h3>
+                        </div>
+                        <div class="loan-content">
+                            <div class="loan-info">
+                                <p>Get a loan with competitive interest rates and flexible repayment options.</p>
+                                <ul class="loan-features">
+                                    <li><i class="fas fa-check-circle"></i> Interest Rate: 12% per annum</li>
+                                    <li><i class="fas fa-check-circle"></i> Flexible repayment terms (12-60 months)</li>
+                                    <li><i class="fas fa-check-circle"></i> Quick approval process</li>
+                                </ul>
+                            </div>
+                            <div class="loan-action">
+                                <button class="apply-loan-btn" onclick="toggleLoanForm()">
+                                    <i class="fas fa-hand-holding-usd"></i> Apply Now
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Loan Application Form (Initially Hidden) -->
+                    <div class="loan-application-form" id="loanForm" style="display: none;">
+                        <div class="form-header">
+                            <h3><i class="fas fa-file-alt"></i> Loan Application</h3>
+                            <button class="close-form-btn" onclick="toggleLoanForm()">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <form id="loanApplicationForm" onsubmit="return handleLoanApplication(event)">
+                            <div class="form-group">
+                                <label>Loan Amount (₹)</label>
+                                <input type="number" name="amount" min="10000" step="1000" required>
+                                <small>Minimum loan amount: ₹10,000</small>
+                            </div>
+                            <div class="form-group">
+                                <label>Repayment Term (Months)</label>
+                                <select name="term_months" required>
+                                    <option value="">Select Term</option>
+                                    <option value="12">12 months</option>
+                                    <option value="24">24 months</option>
+                                    <option value="36">36 months</option>
+                                    <option value="48">48 months</option>
+                                    <option value="60">60 months</option>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Purpose of Loan</label>
+                                <textarea name="purpose" rows="3" required></textarea>
+                            </div>
+                            <div class="form-group">
+                                <label>Monthly Income (₹)</label>
+                                <input type="number" name="monthly_income" min="0" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Employment Type</label>
+                                <select name="employment_type" required>
+                                    <option value="">Select Employment Type</option>
+                                    <option value="salaried">Salaried</option>
+                                    <option value="self_employed">Self Employed</option>
+                                    <option value="business">Business</option>
+                                </select>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="cancel-btn" onclick="toggleLoanForm()">Cancel</button>
+                                <button type="submit" class="submit-btn">Submit Application</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Active Loans Section -->
+                    <div class="active-loans-section">
+                        <h3><i class="fas fa-list"></i> My Loans</h3>
+                        {% if loans %}
+                            <div class="loans-grid">
+                                {% for loan in loans %}
+                                <div class="loan-card" data-loan-id="{{ loan.id }}">
+                                    <div class="loan-card-header">
+                                        <span class="loan-status {{ loan.status }}">
+                                            {{ loan.status|title }}
+                                        </span>
+                                        <span class="loan-date">{{ loan.application_date.strftime('%d %b %Y') }}</span>
+                                    </div>
+                                    <div class="loan-details">
+                                        <div class="loan-amount">
+                                            <label>Loan Amount</label>
+                                            <p>₹{{ "{:,.2f}".format(loan.amount) }}</p>
+                                        </div>
+                                        <div class="loan-term">
+                                            <label>Term</label>
+                                            <p>{{ loan.term_months }} months</p>
+                                        </div>
+                                        <div class="loan-payment">
+                                            <label>Monthly Payment</label>
+                                            <p>₹{{ "{:,.2f}".format(loan.monthly_payment) }}</p>
+                                        </div>
+                                        <div class="loan-remaining">
+                                            <label>Remaining Amount</label>
+                                            <p>₹{{ "{:,.2f}".format(loan.remaining_amount) }}</p>
+                                        </div>
+                                    </div>
+                                    {% if loan.status == 'pending' %}
+                                    <div class="loan-actions">
+                                        <button class="cancel-loan-btn" onclick="cancelLoan({{ loan.id }})">
+                                            <i class="fas fa-times"></i> Cancel Application
+                                        </button>
+                                    </div>
+                                    {% endif %}
+                                </div>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            <div class="no-loans">
+                                <i class="fas fa-file-invoice"></i>
+                                <p>You don't have any active loans.</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+
+                <!-- Transactions Section -->
+                <div class="content-section" id="transactions-section">
+                    <h2>Transaction History</h2>
+                    <div class="filter-bar">
+                        <select id="transactionType">
+                            <option value="all">All Transactions</option>
+                            <option value="deposit">Deposits</option>
+                            <option value="withdrawal">Withdrawals</option>
+                            <option value="transfer">Transfers</option>
+                        </select>
+                        <input type="date" id="dateFilter">
+                        <button class="filter-btn">Apply Filter</button>
+                    </div>
+                    <div class="table-container">
+                        <table class="data-table">
+                            <thead>
+                                <tr>
+                                    <th>Date & Time</th>
+                                    <th>Type</th>
+                                    <th>Amount</th>
+                                    <th>Description</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for transaction in transactions %}
+                                <tr>
+                                    <td>{{ transaction.transaction_date }}</td>
+                                    <td>
+                                        <span class="transaction-type {{ transaction.transaction_type }}">
+                                            {{ transaction.transaction_type|title }}
+                                        </span>
+                                    </td>
+                                    <td>₹{{ "{:,.2f}".format(transaction.amount) }}</td>
+                                    <td>{{ transaction.notes or 'N/A' }}</td>
+                                    <td>
+                                        <span class="status-badge success">Success</span>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Profile Section -->
+                <div class="content-section" id="profile-section">
+                    <h2>Profile Settings</h2>
+                    <div class="management-grid">
+                        <div class="management-card">
+                            <h3>Update Profile</h3>
+                            <form id="profileForm" method="POST" action="{{ url_for('update_profile') }}">
+                                <div class="form-group">
+                                    <label>Full Name</label>
+                                    <input type="text" name="full_name" value="{{ customer.name }}" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>Current PIN</label>
+                                    <input type="password" name="current_pin" pattern="[0-9]{4}" title="Please enter your current 4-digit PIN" required>
+                                </div>
+                                <div class="form-group">
+                                    <label>New PIN (Optional)</label>
+                                    <input type="password" name="new_pin" pattern="[0-9]{4}" title="Please enter a 4-digit PIN">
+                                </div>
+                                <button type="submit" class="submit-btn">Update Profile</button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Update date and time
+        function updateDateTime() {
+            const now = new Date();
+            const options = { 
+                weekday: 'long', 
+                year: 'numeric', 
+                month: 'long', 
+                day: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit',
+                second: '2-digit'
+            };
+            document.getElementById('datetime').textContent = now.toLocaleDateString('en-US', options);
+        }
+
+        // Update time every second
+        updateDateTime();
+        setInterval(updateDateTime, 1000);
+
+        // Tab switching functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            const navItems = document.querySelectorAll('.nav-item:not(.logout)');
+            const contentSections = document.querySelectorAll('.content-section');
+
+            navItems.forEach(item => {
+                item.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    
+                    // Remove active class from all nav items and content sections
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    contentSections.forEach(section => section.classList.remove('active'));
+                    
+                    // Add active class to clicked nav item and corresponding content section
+                    this.classList.add('active');
+                    const tabId = this.getAttribute('data-tab') + '-section';
+                    document.getElementById(tabId).classList.add('active');
+                });
+            });
+
+            // Transaction filter functionality
+            const transactionType = document.getElementById('transactionType');
+            const dateFilter = document.getElementById('dateFilter');
+            const filterBtn = document.querySelector('.filter-btn');
+
+            if (filterBtn) {
+                filterBtn.addEventListener('click', function() {
+                    const type = transactionType.value;
+                    const date = dateFilter.value;
+                    const rows = document.querySelectorAll('#transactions-section .data-table tbody tr');
+                    
+                    rows.forEach(row => {
+                        let show = true;
+                        
+                        if (type !== 'all') {
+                            const transactionType = row.children[1].textContent.trim().toLowerCase();
+                            show = show && transactionType === type;
+                        }
+                        
+                        if (date) {
+                            const transactionDate = row.children[0].textContent.split(' ')[0];
+                            show = show && transactionDate === date;
+                        }
+                        
+                        row.style.display = show ? '' : 'none';
+                    });
+                });
+            }
+        });
+
+        function validateTransfer() {
+            const amount = parseFloat(document.querySelector('input[name="amount"]').value);
+            const balance = parseFloat("{{ customer.balance }}");
+            const recipientAccount = document.querySelector('input[name="recipient_account"]').value;
+            const currentAccount = "{{ customer.account_number }}";
+
+            if (recipientAccount === currentAccount) {
+                alert('Cannot transfer to your own account!');
+                return false;
+            }
+
+            if (amount <= 0) {
+                alert('Amount must be greater than 0!');
+                return false;
+            }
+
+            if (amount > balance) {
+                alert('Insufficient balance!');
+                return false;
+            }
+
+            return true;
+        }
+
+        function toggleLoanForm() {
+            const form = document.getElementById('loanForm');
+            form.style.display = form.style.display === 'none' ? 'block' : 'none';
+        }
+
+        function validateLoanForm() {
+            const amount = parseFloat(document.querySelector('input[name="amount"]').value);
+            const monthlyIncome = parseFloat(document.querySelector('input[name="monthly_income"]').value);
+            const termMonths = parseInt(document.querySelector('select[name="term_months"]').value);
+            
+            // Calculate monthly payment (simple interest)
+            const interestRate = 0.12; // 12% per annum
+            const monthlyRate = interestRate / 12;
+            const monthlyPayment = (amount * monthlyRate * Math.pow(1 + monthlyRate, termMonths)) / (Math.pow(1 + monthlyRate, termMonths) - 1);
+            
+            // Check if monthly payment is less than 40% of monthly income
+            if (monthlyPayment > (monthlyIncome * 0.4)) {
+                alert('Monthly payment exceeds 40% of your monthly income. Please adjust the loan amount or term.');
+                return false;
+            }
+            
+            return true;
+        }
+
+        function handleLoanApplication(event) {
+            event.preventDefault();
+            
+            if (!validateLoanForm()) {
+                return false;
+            }
+
+            const form = event.target;
+            const formData = new FormData(form);
+            
+            fetch('/customer/loan/apply', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Hide the form
+                    toggleLoanForm();
+                    
+                    // Add the new loan to the loans grid
+                    addNewLoan(data.loan);
+                    
+                    // Show success message
+                    showFlashMessage(data.message, 'success');
+                } else {
+                    showFlashMessage(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showFlashMessage('An error occurred. Please try again.', 'error');
+            });
+            
+            return false;
+        }
+
+        function addNewLoan(loan) {
+            const loansGrid = document.querySelector('.loans-grid');
+            const noLoansDiv = document.querySelector('.no-loans');
+            
+            // Remove the "no loans" message if it exists
+            if (noLoansDiv) {
+                noLoansDiv.remove();
+            }
+            
+            // Create the loan card
+            const loanCard = document.createElement('div');
+            loanCard.className = 'loan-card';
+            loanCard.innerHTML = `
+                <div class="loan-card-header">
+                    <span class="loan-status ${loan.status}">
+                        ${loan.status.charAt(0).toUpperCase() + loan.status.slice(1)}
+                    </span>
+                    <span class="loan-date">${new Date(loan.application_date).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}</span>
+                </div>
+                <div class="loan-details">
+                    <div class="loan-amount">
+                        <label>Loan Amount</label>
+                        <p>₹${loan.amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                    <div class="loan-term">
+                        <label>Term</label>
+                        <p>${loan.term_months} months</p>
+                    </div>
+                    <div class="loan-payment">
+                        <label>Monthly Payment</label>
+                        <p>₹${loan.monthly_payment.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                    <div class="loan-remaining">
+                        <label>Remaining Amount</label>
+                        <p>₹${loan.remaining_amount.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                    </div>
+                </div>
+                ${loan.status === 'pending' ? `
+                    <div class="loan-actions">
+                        <button class="cancel-loan-btn" onclick="cancelLoan(${loan.id})">
+                            <i class="fas fa-times"></i> Cancel Application
+                        </button>
+                    </div>
+                ` : ''}
+            `;
+            
+            // Add the new loan card to the grid
+            if (loansGrid) {
+                loansGrid.insertBefore(loanCard, loansGrid.firstChild);
+            } else {
+                // If no grid exists, create one
+                const activeLoansSection = document.querySelector('.active-loans-section');
+                const newGrid = document.createElement('div');
+                newGrid.className = 'loans-grid';
+                newGrid.appendChild(loanCard);
+                activeLoansSection.appendChild(newGrid);
+            }
+        }
+
+        function showFlashMessage(message, type) {
+            const flashDiv = document.createElement('div');
+            flashDiv.className = `flash-message ${type}`;
+            flashDiv.textContent = message;
+            
+            // Add the message to the page
+            document.body.appendChild(flashDiv);
+            
+            // Remove the message after 3 seconds
+            setTimeout(() => {
+                flashDiv.remove();
+            }, 3000);
+        }
+
+        function cancelLoan(loanId) {
+            if (!confirm('Are you sure you want to cancel this loan application?')) {
+                return;
+            }
+
+            fetch(`/customer/loan/cancel/${loanId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Find and remove the loan card
+                    const loanCard = document.querySelector(`.loan-card[data-loan-id="${loanId}"]`);
+                    if (loanCard) {
+                        // Remove the loan card with a fade effect
+                        loanCard.style.opacity = '0';
+                        setTimeout(() => {
+                            loanCard.remove();
+                            
+                            // Check if there are any remaining loans
+                            const loansGrid = document.querySelector('.loans-grid');
+                            if (loansGrid && loansGrid.children.length === 0) {
+                                // If no loans left, show the "no loans" message
+                                const activeLoansSection = document.querySelector('.active-loans-section');
+                                const noLoansDiv = document.createElement('div');
+                                noLoansDiv.className = 'no-loans';
+                                noLoansDiv.innerHTML = `
+                                    <i class="fas fa-file-invoice"></i>
+                                    <p>You don't have any active loans.</p>
+                                `;
+                                activeLoansSection.appendChild(noLoansDiv);
+                                
+                                // Remove the loans grid if it's empty
+                                loansGrid.remove();
+                            }
+                        }, 300); // Wait for fade effect to complete
+                    }
+                    
+                    showFlashMessage(data.message, 'success');
+                } else {
+                    showFlashMessage(data.message, 'error');
+                }
+            })
+            .catch(error => {
+                showFlashMessage('Error cancelling loan application. Please try again.', 'error');
+            });
+        }
+    </script>
+</body>
+</html> 

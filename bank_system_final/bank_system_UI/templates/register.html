@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create New Account - SecureBank</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <div class="login-container">
+            <h1 class="title">Create New Account</h1>
+            
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form class="login-form active" action="{{ url_for('register') }}" method="POST">
+                <div class="form-group">
+                    <input type="text" name="full_name" placeholder="Full Name" required>
+                </div>
+                <div class="form-group">
+                    <input type="text" name="account_number" placeholder="Preferred Account Number (10 digits)" pattern="[0-9]{10}" title="Please enter a 10-digit number" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" name="pin" placeholder="PIN (4 digits)" pattern="[0-9]{4}" title="Please enter a 4-digit PIN" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" name="confirm_pin" placeholder="Confirm PIN" pattern="[0-9]{4}" title="Please enter a 4-digit PIN" required>
+                </div>
+                <div class="form-group">
+                    <input type="number" name="initial_deposit" placeholder="Initial Deposit Amount" min="500" step="0.01" required>
+                    <small class="form-text">Minimum deposit: ₹500</small>
+                </div>
+                <button type="submit" class="login-btn">Create Account</button>
+                <div class="register-link">
+                    <p>Already have an account? <a href="{{ url_for('index') }}">Login here</a></p>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html> 
